@@ -1,0 +1,126 @@
+services:
+    # PHP (Laravel) backend
+    backend:
+        platform: linux/amd64
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+        image: sert-manager-backend
+        container_name: sert-manager-backend
+        restart: unless-stopped
+        depends_on:
+            db:
+                condition: service_healthy
+        working_dir: /var/www
+        volumes:
+            - ./backend:/var/www
+        environment:
+            DB_HOST: ${DB_HOST}
+            DB_PORT: ${DB_PORT}
+            DB_DATABASE: ${DB_DATABASE}
+            DB_USERNAME: ${DB_USERNAME}
+            DB_PASSWORD: ${DB_PASSWORD}
+            JWT_SECRET: ${JWT_SECRET}
+        networks:
+            - sert-network
+        entrypoint: >
+            sh -c "
+            composer install --no-interaction &&
+            php artisan migrate --force &&
+            php artisan db:seed --force &&
+            php-fpm
+            "
+
+    # Nginx web server
+    nginx:
+        platform: linux/amd64
+        image: nginx:alpine
+        container_name: sert-manager-nginx
+        restart: unless-stopped
+        ports:
+            - "${BACKEND_PORT:-6162}:80"
+        depends_on:
+            - backend
+        volumes:
+            - ./backend:/var/www
+            - ./docker-compose/nginx:/etc/nginx/conf.d
+        networks:
+            - sert-network
+
+    # Frontend (Next.js)
+    frontend:
+        platform: linux/amd64
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile
+        image: sert-manager-frontend
+        container_name: sert-manager-frontend
+        restart: unless-stopped
+        ports:
+            - "${FRONTEND_PORT:-3000}:3000"
+        environment:
+            NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:6162/api}
+        depends_on:
+            - backend
+        networks:
+            - sert-network
+
+    # Worker (Go background service)
+    worker:
+        platform: linux/amd64
+        build:
+            context: ./worker
+            dockerfile: Dockerfile
+        image: sert-manager-worker
+        container_name: sert-manager-worker
+        restart: unless-stopped
+        depends_on:
+            db:
+                condition: service_healthy
+        environment:
+            DB_HOST: ${DB_HOST}
+            DB_PORT: ${DB_PORT}
+            DB_DATABASE: ${DB_DATABASE}
+            DB_USERNAME: ${DB_USERNAME}
+            DB_PASSWORD: ${DB_PASSWORD}
+        networks:
+            - sert-network
+
+    # PostgreSQL database
+    db:
+        image: postgres:16
+        container_name: sert-manager-db
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: ${DB_DATABASE}
+            POSTGRES_USER: ${DB_USERNAME}
+            POSTGRES_PASSWORD: ${DB_PASSWORD}
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+        networks:
+            - sert-network
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+            interval: 5s
+            timeout: 5s
+            retries: 5
+
+    # PgAdmin (optional DB management UI)
+    pgadmin:
+        image: dpage/pgadmin4
+        container_name: sert-manager-pgadmin
+        restart: unless-stopped
+        environment:
+            PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+            PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+        ports:
+            - "${PGADMIN_PORT:-5050}:80"
+        networks:
+            - sert-network
+
+volumes:
+    pgdata:
+
+networks:
+    sert-network:
+        driver: bridge
