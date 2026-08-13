@@ -11,6 +11,8 @@ services:
         depends_on:
             db:
                 condition: service_healthy
+            redis:
+                condition: service_started
         working_dir: /var/www
         volumes:
             - ./backend:/var/www
@@ -21,15 +23,23 @@ services:
             DB_USERNAME: ${DB_USERNAME}
             DB_PASSWORD: ${DB_PASSWORD}
             JWT_SECRET: ${JWT_SECRET}
+            REDIS_HOST: redis
         networks:
             - sert-network
         entrypoint: >
             sh -c "
-            composer install --no-interaction &&
+            composer install --no-interaction 2>/dev/null || composer update --no-interaction &&
             php artisan migrate --force &&
             php artisan db:seed --force &&
+            chown -R www-data:www-data storage bootstrap/cache &&
             php-fpm
             "
+        healthcheck:
+            test: ["CMD-SHELL", "php -r 'exit(@fsockopen(\"127.0.0.1\", 9000) ? 0 : 1);'"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 10s
 
     # Nginx web server
     nginx:
@@ -46,6 +56,12 @@ services:
             - ./docker-compose/nginx:/etc/nginx/conf.d
         networks:
             - sert-network
+        healthcheck:
+            test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/up || exit 1"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 10s
 
     # Frontend (Next.js)
     frontend:
@@ -64,6 +80,12 @@ services:
             - backend
         networks:
             - sert-network
+        healthcheck:
+            test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000 || exit 1"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 15s
 
     # Worker (Go background service)
     worker:
@@ -85,6 +107,12 @@ services:
             DB_PASSWORD: ${DB_PASSWORD}
         networks:
             - sert-network
+        healthcheck:
+            test: ["CMD", "pg_isready", "-U", "${DB_USERNAME}", "-d", "${DB_DATABASE}", "-h", "db"]
+            interval: 60s
+            timeout: 5s
+            retries: 2
+            start_period: 5s
 
     # PostgreSQL database
     db:
@@ -105,7 +133,20 @@ services:
             timeout: 5s
             retries: 5
 
-    # PgAdmin (optional DB management UI)
+    # Redis (cache)
+    redis:
+        image: redis:7-alpine
+        container_name: sert-manager-redis
+        restart: unless-stopped
+        networks:
+            - sert-network
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 3s
+            retries: 3
+
+    # PgAdmin (optional)
     pgadmin:
         image: dpage/pgadmin4
         container_name: sert-manager-pgadmin

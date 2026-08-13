@@ -45,9 +45,21 @@ func main() {
 }
 
 func checkExpired(db *sql.DB) {
-	result, err := db.Exec(
-		"UPDATE certificates SET status = 'expired', updated_at = NOW() WHERE status = 'active' AND expires_at < CURRENT_DATE",
-	)
+	query := `
+WITH updated AS (
+    UPDATE certificates
+    SET status = 'expired', updated_at = NOW()
+    WHERE status = 'active' AND expires_at < CURRENT_DATE AND deleted_at IS NULL
+    RETURNING id, name
+)
+INSERT INTO activity_logs (subject_type, subject_id, user_id, action, changes, created_at)
+SELECT 'App\Models\Certificate', id, NULL, 'expired',
+       jsonb_build_object('before', jsonb_build_object('status', 'active'),
+                          'after', jsonb_build_object('status', 'expired')),
+       NOW()
+FROM updated
+`
+	result, err := db.Exec(query)
 	if err != nil {
 		log.Printf("ERROR: failed to update expired certificates: %v", err)
 		return
@@ -55,7 +67,7 @@ func checkExpired(db *sql.DB) {
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected > 0 {
-		log.Printf("Updated %d certificate(s) to expired status", rowsAffected)
+		log.Printf("Updated %d certificate(s) to expired status (audit logged)", rowsAffected)
 	}
 }
 

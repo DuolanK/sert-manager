@@ -5,26 +5,29 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Certificate;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 
 class CertificateController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Certificate::query();
+        $cacheKey = 'certificates:list:' . md5(json_encode($request->only(['search', 'status', 'page', 'per_page'])));
 
-        if ($request->filled('search')) {
-            $query->where('name', 'ilike', '%' . $request->search . '%');
-        }
+        return Cache::tags(['certificates'])->remember($cacheKey, 60, function () use ($request) {
+            $query = Certificate::query();
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
+            if ($request->filled('search')) {
+                $query->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($request->search) . '%']);
+            }
 
-        $perPage = min((int) $request->input('per_page', 15), 100);
-        $certificates = $query->orderBy('created_at', 'desc')->paginate($perPage);
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
 
-        return response()->json($certificates);
+            $perPage = min((int) $request->input('per_page', 15), 100);
+            return $query->orderBy('created_at', 'desc')->paginate($perPage);
+        });
     }
 
     public function store(Request $request)
@@ -41,6 +44,8 @@ class CertificateController extends Controller
         }
 
         $certificate = Certificate::create($validator->validated());
+
+        Cache::tags(['certificates'])->flush();
 
         return response()->json($certificate, 201);
     }
@@ -65,12 +70,36 @@ class CertificateController extends Controller
 
         $certificate->update($validator->validated());
 
+        Cache::tags(['certificates'])->flush();
+
         return response()->json($certificate);
     }
 
     public function destroy(Certificate $certificate)
     {
-        $certificate->delete();
+        $certificate->delete(); // soft delete
+
+        Cache::tags(['certificates'])->flush();
+
+        return response()->json(null, 204);
+    }
+
+    public function restore($id)
+    {
+        $certificate = Certificate::withTrashed()->findOrFail($id);
+        $certificate->restore();
+
+        Cache::tags(['certificates'])->flush();
+
+        return response()->json($certificate);
+    }
+
+    public function forceDestroy($id)
+    {
+        $certificate = Certificate::withTrashed()->findOrFail($id);
+        $certificate->forceDelete();
+
+        Cache::tags(['certificates'])->flush();
 
         return response()->json(null, 204);
     }
