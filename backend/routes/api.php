@@ -2,12 +2,12 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\CertificateController;
+use App\Http\Controllers\Api\TaskController;
 
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('jwt')->group(function () {
-    Route::post('/certificates/{id}/restore', [CertificateController::class, 'restore']);
-    Route::delete('/certificates/{id}/force', [CertificateController::class, 'forceDestroy']);
-    Route::apiResource('certificates', CertificateController::class);
+    Route::post('/tasks/{id}/restore', [TaskController::class, 'restore']);
+    Route::delete('/tasks/{id}/force', [TaskController::class, 'forceDestroy']);
+    Route::apiResource('tasks', TaskController::class);
 });

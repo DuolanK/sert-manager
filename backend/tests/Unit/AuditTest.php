@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Models\Certificate;
+use App\Models\Task;
 use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,38 +14,38 @@ class AuditTest extends TestCase
 
     public function test_audit_log_on_create()
     {
-        $cert = Certificate::factory()->create(['name' => 'Test']);
+        $task = Task::factory()->create(['title' => 'Test']);
 
         $this->assertDatabaseHas('activity_logs', [
-            'subject_type' => Certificate::class,
-            'subject_id' => $cert->id,
+            'subject_type' => Task::class,
+            'subject_id' => $task->id,
             'action' => 'created',
         ]);
     }
 
     public function test_audit_log_on_update()
     {
-        $cert = Certificate::factory()->create(['name' => 'Old']);
-        $cert->update(['name' => 'New']);
+        $task = Task::factory()->create(['title' => 'Old']);
+        $task->update(['title' => 'New']);
 
-        $log = ActivityLog::where('subject_id', $cert->id)
+        $log = ActivityLog::where('subject_id', $task->id)
             ->where('action', 'updated')
             ->first();
 
         $this->assertNotNull($log);
-        $this->assertEquals('Old', $log->changes['before']['name']);
-        $this->assertEquals('New', $log->changes['after']['name']);
+        $this->assertEquals('Old', $log->changes['before']['title']);
+        $this->assertEquals('New', $log->changes['after']['title']);
     }
 
     public function test_audit_log_on_force_delete()
     {
-        $cert = Certificate::factory()->create(['name' => 'Test']);
-        $cert->delete();
-        $cert->forceDelete();
+        $task = Task::factory()->create(['title' => 'Test']);
+        $task->delete();
+        $task->forceDelete();
 
         $this->assertDatabaseHas('activity_logs', [
-            'subject_type' => Certificate::class,
-            'subject_id' => $cert->id,
+            'subject_type' => Task::class,
+            'subject_id' => $task->id,
             'action' => 'deleted',
         ]);
     }

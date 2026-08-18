@@ -17,7 +17,7 @@ export default function LoginPage() {
     try {
       const data = await apiLogin(email, password);
       setToken(data.token);
-      router.push('/certificates');
+      router.push('/tasks');
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {
@@ -27,7 +27,7 @@ export default function LoginPage() {
 
   return (
     <div className="login-form">
-      <h2>Certificate Manager</h2>
+      <h2>Менеджер задач</h2>
       {error && <div className="error">{error}</div>}
       <form onSubmit={handleSubmit}>
         <div className="form-group">
@@ -49,7 +49,7 @@ export default function LoginPage() {
           />
         </div>
         <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-          {loading ? 'Signing in...' : 'Sign In'}
+          {loading ? 'Вход...' : 'Войти'}
         </button>
       </form>
     </div>

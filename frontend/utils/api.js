@@ -55,36 +55,36 @@ export function login(email, password) {
   });
 }
 
-export function getCertificates(params = {}) {
+export function getTasks(params = {}) {
   const query = new URLSearchParams();
   if (params.search) query.set('search', params.search);
-  if (params.status) query.set('status', params.status);
+  if (params.completed) query.set('completed', params.completed);
   if (params.page) query.set('page', params.page);
   if (params.per_page) query.set('per_page', params.per_page);
   const qs = query.toString();
-  return request(`/certificates${qs ? `?${qs}` : ''}`);
+  return request(`/tasks${qs ? `?${qs}` : ''}`);
 }
 
-export function getCertificate(id) {
-  return request(`/certificates/${id}`);
+export function getTask(id) {
+  return request(`/tasks/${id}`);
 }
 
-export function createCertificate(data) {
-  return request('/certificates', {
+export function createTask(data) {
+  return request('/tasks', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export function updateCertificate(id, data) {
-  return request(`/certificates/${id}`, {
+export function updateTask(id, data) {
+  return request(`/tasks/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   });
 }
 
-export function deleteCertificate(id) {
-  return request(`/certificates/${id}`, {
+export function deleteTask(id) {
+  return request(`/tasks/${id}`, {
     method: 'DELETE',
   });
 }

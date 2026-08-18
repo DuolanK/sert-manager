@@ -22,6 +22,7 @@ services:
             DB_DATABASE: ${DB_DATABASE}
             DB_USERNAME: ${DB_USERNAME}
             DB_PASSWORD: ${DB_PASSWORD}
+            APP_KEY: ${APP_KEY}
             JWT_SECRET: ${JWT_SECRET}
             REDIS_HOST: redis
         networks:
@@ -86,33 +87,6 @@ services:
             timeout: 5s
             retries: 3
             start_period: 15s
-
-    # Worker (Go background service)
-    worker:
-        platform: linux/amd64
-        build:
-            context: ./worker
-            dockerfile: Dockerfile
-        image: sert-manager-worker
-        container_name: sert-manager-worker
-        restart: unless-stopped
-        depends_on:
-            db:
-                condition: service_healthy
-        environment:
-            DB_HOST: ${DB_HOST}
-            DB_PORT: ${DB_PORT}
-            DB_DATABASE: ${DB_DATABASE}
-            DB_USERNAME: ${DB_USERNAME}
-            DB_PASSWORD: ${DB_PASSWORD}
-        networks:
-            - sert-network
-        healthcheck:
-            test: ["CMD", "pg_isready", "-U", "${DB_USERNAME}", "-d", "${DB_DATABASE}", "-h", "db"]
-            interval: 60s
-            timeout: 5s
-            retries: 2
-            start_period: 5s
 
     # PostgreSQL database
     db:

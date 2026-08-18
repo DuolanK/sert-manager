@@ -1,6 +1,6 @@
-# Sert Manager — Certificate Management System
+# Task Manager — Менеджер задач
 
-Веб-приложение для управления подарочными сертификатами. Состоит из трёх микросервисов.
+Веб-приложение для управления задачами. Состоит из трёх микросервисов.
 
 ## Стек
 
@@ -8,7 +8,6 @@
 |-----------|-----------|
 | Backend (REST API) | PHP 8.2 + Laravel 12 |
 | Frontend | Node.js 20 + Next.js 14 |
-| Worker (фон) | Go 1.21 |
 | Web server | Nginx (Alpine) |
 | Database | PostgreSQL 16 |
 | Cache | Redis 7 |
@@ -17,9 +16,10 @@
 ## Возможности
 
 - JWT-аутентификация (один тестовый пользователь)
-- CRUD сертификатов с поиском, фильтрацией по статусу и пагинацией
+- CRUD задач с поиском, фильтрацией по статусу выполнения и пагинацией
+- Поле «исполнитель» и признак «выполнено» (переключение чекбоксом)
+- Срок выполнения (опционально)
 - Валидация входных данных
-- Фоновый worker: авто-перевод просроченных сертификатов в `expired`
 - Мягкое удаление (soft delete) с восстановлением и полным удалением
 - Аудит изменений (логирование create/update/delete с диффом)
 - Кеширование списка через Redis
@@ -36,8 +36,8 @@
 
 ```bash
 # 1. Клонировать репозиторий
-git clone <repo-url> sert-manager
-cd sert-manager
+git clone <repo-url> task-manager
+cd task-manager
 
 # 2. Создать .env из примера
 cp .env.example .env
@@ -59,15 +59,15 @@ docker compose up -d --build
 - Email: `test@example.com`
 - Password: `password`
 
+Также создаются несколько демо-задач.
+
 ## Структура проекта
 
 Корневой `.env` содержит общие настройки проекта, а `docker-compose.yml` отвечает за запуск всех сервисов.
 
 Backend на Laravel предоставляет REST API и работает с базой данных.
 
-Frontend на Next.js отвечает за интерфейс, через который пользователь работает с сертификатами.
-
-Worker на Go работает в фоне и периодически проверяет сертификаты на предмет истечения срока действия.
+Frontend на Next.js отвечает за интерфейс, через который пользователь работает с задачами.
 
 Nginx используется как прокси и принимает запросы от клиента, после чего передаёт их нужному сервису.
 
@@ -81,27 +81,26 @@ Nginx используется как прокси и принимает зап�
 
 Токен передавать в заголовке: `Authorization: Bearer <token>`
 
-### Сертификаты (требуют JWT)
+### Задачи (требуют JWT)
 
 | Метод | Путь | Описание |
 |-------|------|----------|
-| GET | `/api/certificates` | Список |
-| POST | `/api/certificates` | Создать |
-| GET | `/api/certificates/{id}` | Получить один |
-| PUT | `/api/certificates/{id}` | Обновить |
-| DELETE | `/api/certificates/{id}` | Удалить (мягко) |
-| POST | `/api/certificates/{id}/restore` | Восстановить мягко удалённый |
-| DELETE | `/api/certificates/{id}/force` | Удалить полностью (безвозвратно) |
+| GET | `/api/tasks` | Список |
+| POST | `/api/tasks` | Создать |
+| GET | `/api/tasks/{id}` | Получить одну |
+| PUT | `/api/tasks/{id}` | Обновить |
+| DELETE | `/api/tasks/{id}` | Удалить (мягко) |
+| POST | `/api/tasks/{id}/restore` | Восстановить мягко удалённую |
+| DELETE | `/api/tasks/{id}/force` | Удалить полностью (безвозвратно) |
 
-Параметры списка: `?search=...&status=active&page=1&per_page=15`
+Параметры списка: `?search=...&completed=true&page=1&per_page=15`
 
-Поля сертификата:
-- `name` — название (строка, обязательно)
-- `price` — стоимость (число > 0, обязательно)
-- `expires_at` — срок действия (дата > сегодня, обязательно)
-- `status` — статус: `active`, `expired`, `redeemed`
+Поля задачи:
 
-Статусы: `active`, `expired`, `redeemed`
+- `title` — название (строка, обязательно)
+- `executor` — исполнитель (строка, опционально)
+- `due_date` — срок выполнения (дата, опционально)
+- `completed` — выполнено/нет (булево, по умолчанию `false`)
 
 ## Мягкое удаление
 
@@ -109,7 +108,7 @@ Nginx используется как прокси и принимает зап�
 
 ## Аудит изменений
 
-Каждое создание, изменение и удаление сертификата логируется в таблицу `activity_logs` с фиксацией пользователя, действия и диффа полей (`before`/`after`).
+Каждое создание, изменение и удаление задачи логируется в таблицу `activity_logs` с фиксацией пользователя, действия и диффа полей (`before`/`after`).
 
 ```bash
 # Посмотреть журнал аудита
@@ -119,20 +118,11 @@ docker compose exec db psql -U sert_user -d sert_manager -c \
 
 ## Кеширование
 
-Список сертификатов кешируется в Redis на 60 секунд. При любом изменении (создание/обновление/удаление) кеш сбрасывается автоматически.
+Список задач кешируется в Redis на 60 секунд. При любом изменении (создание/обновление/удаление) кеш сбрасывается автоматически.
 
 ```bash
 # Посмотреть ключи кеша
 docker compose exec redis redis-cli KEYS '*'
-```
-
-## Фоновый worker
-
-Раз в минуту проверяет все сертификаты со статусом `active` и датой истечения меньше текущей — автоматически меняет статус на `expired`. Результат логируется.
-
-```bash
-# Посмотреть логи воркера
-docker compose logs -f worker
 ```
 
 ## Docker Healthcheck
@@ -145,7 +135,7 @@ docker compose ps
 # Точный статус каждого
 docker inspect --format='{{.Name}} → {{.State.Health.Status}}' \
   sert-manager-db sert-manager-redis sert-manager-backend \
-  sert-manager-nginx sert-manager-frontend sert-manager-worker
+  sert-manager-nginx sert-manager-frontend
 ```
 
 ## Тестирование
@@ -155,14 +145,13 @@ docker inspect --format='{{.Name}} → {{.State.Health.Status}}' \
 docker compose exec backend php artisan test
 ```
 
-Покрытие: аутентификация, CRUD сертификатов (поиск, фильтр, пагинация, soft delete, restore, force delete), аудит.
+Покрытие: аутентификация, CRUD задач (поиск, фильтр, пагинация, переключение `completed`, soft delete, restore, force delete), аудит.
 
 ## CI/CD (GitHub Actions)
 
-Пайплайн определён в `.github/workflows/ci.yml` и запускается на push/pull request в `main`. Включает три job'а:
+Пайплайн определён в `.github/workflows/ci.yml` и запускается на push/pull request в `main`. Включает два job'а:
 
 - `backend-tests` — поднимает PostgreSQL и Redis, прогоняет миграции и `php artisan test`
-- `worker-build` — собирает Go-бинарник
 - `frontend-build` — `npm ci` и `next build`
 
 ## Управление
@@ -173,9 +162,6 @@ docker compose up -d --build
 
 # Остановка
 docker compose down
-
-# Перезапуск одного сервиса
-docker compose restart worker
 
 # Логи конкретного сервиса
 docker compose logs -f backend
@@ -198,15 +184,4 @@ DB_PASSWORD=changeme        # Пароль БД
 
 JWT_SECRET=your-secret      # Секрет для JWT-токенов
 APP_KEY=base64:...          # Ключ шифрования Laravel
-CACHE_STORE=redis           # Кеш-хранилище
-REDIS_HOST=redis            # Хост Redis (внутри Docker — redis)
-
-PGADMIN_EMAIL=admin@example.com
-PGADMIN_PASSWORD=changeme   # Пароль pgAdmin
-
-# Опциональные порты
-BACKEND_PORT=6162
-FRONTEND_PORT=3000
-PGADMIN_PORT=5050
-NEXT_PUBLIC_API_URL=http://localhost:6162/api
 ```

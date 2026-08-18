@@ -7,7 +7,7 @@ export default function Home() {
 
   useEffect(() => {
     if (getToken()) {
-      router.replace('/certificates');
+      router.replace('/tasks');
     } else {
       router.replace('/login');
     }
