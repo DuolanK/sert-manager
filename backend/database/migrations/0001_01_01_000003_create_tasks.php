@@ -21,6 +21,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('tasks', function (Blueprint $table) {
+            $table->dropIndex(['title']);
             $table->dropIndex(['completed']);
             $table->dropColumn('executor');
             $table->dropColumn('due_date');
