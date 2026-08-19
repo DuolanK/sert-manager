@@ -17,6 +17,7 @@ services:
         volumes:
             - ./backend:/var/www
         environment:
+            DB_CONNECTION: ${DB_CONNECTION:-pgsql}
             DB_HOST: ${DB_HOST}
             DB_PORT: ${DB_PORT}
             DB_DATABASE: ${DB_DATABASE}
