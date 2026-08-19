@@ -25,6 +25,8 @@ services:
             APP_KEY: ${APP_KEY}
             JWT_SECRET: ${JWT_SECRET}
             REDIS_HOST: redis
+            REDIS_CLIENT: ${REDIS_CLIENT:-predis}
+            CACHE_STORE: ${CACHE_STORE:-redis}
         networks:
             - task-network
         entrypoint: >

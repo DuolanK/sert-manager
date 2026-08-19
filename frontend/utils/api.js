@@ -25,6 +25,7 @@ export function getToken() {
 async function request(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
     ...options.headers,
   };
 
@@ -39,12 +40,18 @@ async function request(path, options = {}) {
 
   if (res.status === 204) return null;
 
-  const data = await res.json();
+  const contentType = res.headers.get('content-type') || '';
+  const data = contentType.includes('application/json')
+    ? await res.json()
+    : await res.text().catch(() => '');
 
   if (!res.ok) {
-    const error = new Error(data.message || 'Request failed');
+    const message = typeof data === 'object' && data !== null
+      ? data.message
+      : `Server error (${res.status})`;
+    const error = new Error(message || 'Request failed');
     error.status = res.status;
-    error.errors = data.errors;
+    error.errors = (typeof data === 'object' && data !== null) ? data.errors : undefined;
     throw error;
   }
 
