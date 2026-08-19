@@ -1,4 +1,7 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6162/api';
+// Relative by default: requests go to the same origin and are proxied
+// to the backend by a Next.js rewrite (see next.config.js). This avoids
+// hardcoding a host/IP and keeps CORS + Private Network Access out of the loop.
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 let token = null;
 

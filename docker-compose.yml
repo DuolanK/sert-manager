@@ -70,13 +70,13 @@ services:
         build:
             context: ./frontend
             dockerfile: Dockerfile
+            args:
+                API_PROXY_TARGET: ${API_PROXY_TARGET:-http://nginx}
         image: task-manager-frontend
         container_name: task-manager-frontend
         restart: unless-stopped
         ports:
             - "${FRONTEND_PORT:-3000}:3000"
-        environment:
-            NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:6162/api}
         depends_on:
             - backend
         networks:
