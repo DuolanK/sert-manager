@@ -5,8 +5,8 @@ services:
         build:
             context: ./backend
             dockerfile: Dockerfile
-        image: sert-manager-backend
-        container_name: sert-manager-backend
+        image: task-manager-backend
+        container_name: task-manager-backend
         restart: unless-stopped
         depends_on:
             db:
@@ -26,7 +26,7 @@ services:
             JWT_SECRET: ${JWT_SECRET}
             REDIS_HOST: redis
         networks:
-            - sert-network
+            - task-network
         entrypoint: >
             sh -c "
             composer install --no-interaction 2>/dev/null || composer update --no-interaction &&
@@ -46,7 +46,7 @@ services:
     nginx:
         platform: linux/amd64
         image: nginx:alpine
-        container_name: sert-manager-nginx
+        container_name: task-manager-nginx
         restart: unless-stopped
         ports:
             - "${BACKEND_PORT:-6162}:80"
@@ -56,7 +56,7 @@ services:
             - ./backend:/var/www
             - ./docker-compose/nginx:/etc/nginx/conf.d
         networks:
-            - sert-network
+            - task-network
         healthcheck:
             test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/up || exit 1"]
             interval: 30s
@@ -70,8 +70,8 @@ services:
         build:
             context: ./frontend
             dockerfile: Dockerfile
-        image: sert-manager-frontend
-        container_name: sert-manager-frontend
+        image: task-manager-frontend
+        container_name: task-manager-frontend
         restart: unless-stopped
         ports:
             - "${FRONTEND_PORT:-3000}:3000"
@@ -80,7 +80,7 @@ services:
         depends_on:
             - backend
         networks:
-            - sert-network
+            - task-network
         healthcheck:
             test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000 || exit 1"]
             interval: 30s
@@ -91,7 +91,7 @@ services:
     # PostgreSQL database
     db:
         image: postgres:16
-        container_name: sert-manager-db
+        container_name: task-manager-db
         restart: unless-stopped
         environment:
             POSTGRES_DB: ${DB_DATABASE}
@@ -100,7 +100,7 @@ services:
         volumes:
             - pgdata:/var/lib/postgresql/data
         networks:
-            - sert-network
+            - task-network
         healthcheck:
             test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
             interval: 5s
@@ -110,10 +110,10 @@ services:
     # Redis (cache)
     redis:
         image: redis:7-alpine
-        container_name: sert-manager-redis
+        container_name: task-manager-redis
         restart: unless-stopped
         networks:
-            - sert-network
+            - task-network
         healthcheck:
             test: ["CMD", "redis-cli", "ping"]
             interval: 10s
@@ -123,7 +123,7 @@ services:
     # PgAdmin (optional)
     pgadmin:
         image: dpage/pgadmin4
-        container_name: sert-manager-pgadmin
+        container_name: task-manager-pgadmin
         restart: unless-stopped
         environment:
             PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
@@ -131,11 +131,11 @@ services:
         ports:
             - "${PGADMIN_PORT:-5050}:80"
         networks:
-            - sert-network
+            - task-network
 
 volumes:
     pgdata:
 
 networks:
-    sert-network:
+    task-network:
         driver: bridge
